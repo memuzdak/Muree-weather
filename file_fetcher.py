@@ -1,12 +1,65 @@
 import csv
+import datetime
+import fnmatch
+import re
+import sys
 from math import floor
-from datecal import file_date
+from pathlib import Path
 
 
-class Calculation:
+class ArgTaker:
+
+    def __init__(self):
+        self.exp = sys.argv
+        if self.exp[1] == '-e':
+            r = re.compile(r'\d\d\d\d')
+            new_list = list(filter(r.match, self.exp))
+            self.last = '*'+new_list[0]+'*'
+        elif self.exp[1] == '-a':
+            r = re.compile(r'\d\d\d\d/\d')
+            new_list = list(filter(r.match, self.exp))
+            self.first = new_list[0].split('/')
+            self.doc = {'1': 'Jan', '2': 'Feb', '3': 'Mar', '4': 'Apr', '5': 'May', '6': 'Jun', '7': 'Jul', '8':
+                        'Aug', '9': 'Sep', '10': 'Oct', '11': 'Nov', '12': 'Dec'}
+            self.last = '*' + self.first[0] + '_' + self.doc[self.first[1]] + '*'
+        elif self.exp[1] == '-c':
+            r = re.compile(r'\d\d\d\d/\d')
+            new_list = list(filter(r.match, self.exp))
+            self.first = new_list[0].split('/')
+            self.doc = {'1' or '01': 'Jan', '2' or '02': 'Feb', '3' or '03': 'Mar', '4' or '04': 'Apr', '5' or '05':
+                        'May', '6' or '06': 'Jun', '7' or '07': 'Jul', '8' or '08': 'Aug', '9': 'Sep', '10':
+                        'Oct', '11': 'Nov', '12': 'Dec'}
+            self.last = '*' + self.first[0] + '_' + self.doc[self.first[1]] + '*'
+
+
+class Files(ArgTaker):
+
+    def __init__(self, expression):
+        self.expression = expression
+
+    def fetch_file_year(self):
+        all_files = []
+        entries = Path('weatherfiles/')
+        for entry in entries.iterdir():
+            if fnmatch.fnmatch(entry, self.expression):
+                all_files.append(entry)
+        return all_files
+
+
+class Calculation(ArgTaker):
 
     def __init__(self, file_taker):
         self.file_taker = file_taker
+
+    def date_cal(self):
+        d = str(self)
+        f_date = d.replace("-", " ")
+        y, m, d = f_date.split()
+        year = int(y)
+        month = int(m)
+        day = int(d)
+        x = datetime.datetime(year, month, day)
+        return x.strftime('%B %d')
 
     def whole_year_cal(self):
         max_temperature_f = []
@@ -21,7 +74,6 @@ class Calculation:
                 csv.register_dialect('strip', skipinitialspace=True)
                 input_file = csv.DictReader(infile, dialect='strip')
                 fieldnames = input_file.fieldnames
-                # print(fieldnames)
                 max_temperature = []
                 max_temp_date = []
                 min_temperature = []
@@ -54,12 +106,11 @@ class Calculation:
                 max_humidity_date_f.append(max_humidity_date[max_humidity_index])
             i = i + 1
         i_max = max_temperature_f.index(max(max_temperature_f))
-        max_report = str(max(max_temperature_f)) + 'C on ' + str(file_date(max_temp_date_f[i_max]))
+        print("Highest: {}C on {}".format(max(max_temperature_f), Calculation.date_cal(max_temp_date_f[i_max])))
         i_min = min_temperature_f.index(min(min_temperature_f))
-        min_report = str(min(min_temperature_f)) + 'C on ' + str(file_date(min_temp_date_f[i_min]))
+        print("Lowest: {}C on {}".format(min(min_temperature_f), Calculation.date_cal(min_temp_date_f[i_min])))
         ih_max = max_humidity_f.index(max(max_humidity_f))
-        maxh_report = str(max(max_humidity_f)) + '% on ' + str(file_date(max_humidity_date_f[ih_max]))
-        return max_report, min_report, maxh_report
+        print("Humidity: {}% on {}".format(max(max_humidity_f), Calculation.date_cal(max_humidity_date_f[ih_max])))
 
 
 class CalculationAvg:
@@ -93,7 +144,9 @@ class CalculationAvg:
                     final_min_avg = sum(min_temperature_avg) / len(min_temperature_avg)
                     final_max_avg = sum(max_temperature_avg) / len(max_temperature_avg)
                     final_mean_humidity_avg = sum(mean_humidity_avg) / len(mean_humidity_avg)
-            return str(floor(final_max_avg)), str(floor(final_min_avg)), str(floor(final_mean_humidity_avg))
+            print("Highest Average: {}C".format(floor(final_max_avg)))
+            print("Lowest Average: {}C".format(floor(final_min_avg)))
+            print("Humidity Average: {}%".format(floor(final_mean_humidity_avg)))
 
 
 class Stars:
@@ -148,3 +201,21 @@ class Bonus:
                     min_temperature.pop()
                 i += 1
 
+
+arg_obj = ArgTaker()
+file_obj = Files(arg_obj.last)
+x = 1
+while x < len(sys.argv):
+    if sys.argv[x] == '-e':
+        cal1 = Calculation(file_obj.fetch_file_year())
+        cal1.whole_year_cal()
+    if sys.argv[x] == '-a':
+        cal2 = CalculationAvg(file_obj.fetch_file_year())
+        cal2.cal_month_avg()
+    if sys.argv[x] == '-c':
+        cal3 = Stars(file_obj.fetch_file_year())
+        cal3.star_fun()
+    if arg_obj.exp[1] == '-c':
+        cal4 = Bonus(file_obj.fetch_file_year())
+        cal4.bonus_star_fun()
+    x += 2
